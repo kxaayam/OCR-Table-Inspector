@@ -1,109 +1,115 @@
+# OCR Table Correction Pipeline (Under construction 🚧 🧱 ) 
 
-# OCR-Table-Inspector
+This repository contains a pipeline for detecting and correcting problematic HTML tables in OCR-generated Markdown files.
 
-## Scope
+It identifies suspicious tables, links them to the corresponding PDF page, and sends only high-risk cases to a local vision LLM for correction. This reduces unnecessary manual review of historical archive documents.
 
-This tool was built **specifically for the University of Toronto OCR
-digitization project**, for historical UofT documents (roughly 1900–1980)
-scanned and converted to HTML tables by that project's pipeline.
+## Workflow
 
-It is **not a general-purpose table checker.** It assumes the exact HTML
-conventions that project's scanning output uses:
-
-- Tables are written as HTML `<table>` blocks using `<tr>` rows and
-  `<td>`/`<th>` cells.
-- Multi-tier headers use `colspan` / `rowspan` attributes.
-- Pages are separated in the source document by a line containing only `---`.
-
-If your tables come from a different source or use a different format, the
-tool will either produce meaningless output or silently miss problems. It has
-only been checked against this one project's output, and nothing else is
-supported or claimed.
-
-## What it checks
-
-At present the tool runs **one check**:
-
-**Inconsistent row lengths.** Within a single table, every row should resolve
-to the same number of columns. The tool computes each row's column count and
-flags any row that does not match the table's most common count. In this
-project's scans, the most frequent cause of such a mismatch is a table whose
-bottom rows were dropped during scanning ("bottom half cut off"), leaving a
-short final row — but the check catches any row that is short (or long)
-relative to the rest of its table, wherever it occurs.
-
-Two table formats are handled:
-
-- **Simple tables** (no `colspan`/`rowspan`): a row's column count is its
-  literal number of `<td>`/`<th>` cells.
-- **Spanned tables** (multi-tier headers using `colspan`/`rowspan`): spans are
-  expanded — a `colspan="5"` cell counts as five columns, and a `rowspan`
-  cell occupies its column in the rows below — so that a correctly-formed
-  header is not mistaken for a broken row.
-
-That is the only check. There is no total/arithmetic verification, no
-detection of entirely-missing rows, no text-accuracy checking, and no
-cross-table comparison. Those are out of scope for this version.
-
-## Output
- 
-The tool reports **only tables that have problems.** Tables with no problems
-are not mentioned at all. For each flagged table it prints:
- 
-- **Page** — which page the table is on, counted by `---` dividers (content
-  before the first divider is page 1).
-- **Name** — the nearest text line immediately above the table (typically its
-  printed heading), or `(unnamed)` if there is none.
-- **Problem(s) found** — each failing check, numbered, with its own details.
-Example:
- 
+```text
+OCR Markdown file
+      ↓
+Stage 0: create working copy
+      ↓
+Stage 1: detect suspicious tables
+      ↓
+Stage 2: locate table page in source PDF
+      ↓
+Stage 3: correct table using local vision LLM + SKILL.md
+      ↓
+Corrected working Markdown file
 ```
-Page 1 — "The Province of Ontario"
-  (1) Problem found: Inconsistent row lengths
-      Rows in this table should have 19 columns.
-      - Row 7   | Dundas.....     | Missing 10 columns
-      - Row 16  | Haliburton..... | Missing 9 columns
-      - Row 26  | Lincoln.....    | Missing 3 columns
+
+## Repository Structure
+
+```text
+run_pipeline.py      Run the full pipeline
+stage0_copy.py       Create a working copy of the input Markdown file
+stage1_detect.py     Run table-detection checks
+check.py             Detect uneven/high-risk table structures
+finding.py           Shared Finding object used across stages
+stage2_locate.py     Locate suspicious tables in the source PDF
+page_locator.py      Estimate page numbers using Markdown page dividers
+stage3_correct.py    Send located tables to the local vision LLM
+SKILL.md             Table correction instructions for the LLM
 ```
- 
-The numbered `(1) Problem found: …` structure is deliberate: it leaves room
-for additional checks to be added later, so one table can report several
-distinct problems at once.
 
 ## Usage
 
-Requires Python 3 (standard library only — no dependencies to install).
-
-Both files must sit in the same folder, since tcheckhe detector imports the page
-locator:
-
-- `check1.py`
-- `page_locator.py`
-
-Run against one or more files:
+Run the full pipeline with:
 
 ```bash
-python check1.py document.md
-python check1.py file1.md file2.md file3.md
-python check1.py scans/*.md
+python3 run_pipeline.py <document.md> <source.pdf>
 ```
 
-Save the report to a file for review:
+Example:
 
 ```bash
-python check1.py scans/*.md > report.txt
+python3 run_pipeline.py report_original.md report.pdf
 ```
 
-## Known limitations
+## Stage
 
-- **Format-specific.** As above — only this project's HTML output is
-  supported.
-- **Rows missing a closing `</tr>`.** If a row is truncated so severely that
-  it loses its `</tr>` tag, it is not parsed and therefore not counted or
-  flagged.
-- **Markdown in headings.** The table name is taken verbatim from the line
-  above the table with HTML tags removed; Markdown formatting (e.g. `**bold**`)
-  is left as-is, so such a heading may show its literal markup.
-- **Ambiguous small tables.** "Expected column count" is the most common count
-  among a table's rows. For a very small table where no count clearly
-  dominates, that reference may not be meaningful. 
+### Stage 0: Create Working Copy
+
+The original OCR Markdown file is never edited directly. The pipeline will first creates a working copy, and all later changes are applied to that copy. 
+
+### Stage 1: Detect Suspicious Tables
+
+Stage 1 scans the Markdown file for HTML <table> blocks and checks for structural issues. Its main check flags uneven row widths while distinguishing harmless section rows from likely OCR errors.
+
+**Low-risk examples:**
+```text
+First Year
+Second Year
+Faculty of Arts
+Totals
+```
+
+**High-risk exmaples:**
+```text
+..112
+.. 56
+. 19
+```
+
+### Stage 2: Locate Table in PDF
+
+When a suspicious table is found, Stage 2 tries to locate the corresponding page in the source PDF.
+
+It uses:
+- the approximate page position from Markdown page dividers '---' 
+- nearby captions or headings
+- distinctive row labels from the table
+
+If the page cannot be located confidently, the table is left for manual review.
+
+
+### Stage 3: Correct with Local Vision LLM
+
+Once the page is located, Stage 3 sends the following to the local vision LLM:
+
+- the rendered page image
+- the rough OCR table HTML
+- `SKILL.md`
+
+The model is asked to return only the corrected `<table>...</table>` markup. The corrected table is then written into the working Markdown file.
+
+## SKILL.md
+`SKILL.md` contains the table-formatting instructions used by the LLM.
+
+It gives rules for:
+- cleaning OCR-generated HTML
+- preserving table structure
+- handling headers and body rows
+- separating leader dots from placeholder dots
+- correcting merged or shifted table cells
+- producing clean HTML table output
+
+## Next Steps
+Planned next steps:
+- test on more real OCR archive files
+- add post-correction validation
+- improve logging and summary reports
+- collect more examples of OCR table failures
+- add additional checks for other high-risk table errors
