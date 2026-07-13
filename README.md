@@ -1,7 +1,8 @@
 # OCR Table Correction Pipeline (Under construction 🚧 🧱 ) 
+*Developed by Zoe Yu, EngSci 2T9, University of Toronto 
+
 
 This repository contains a pipeline for detecting and correcting problematic HTML tables in OCR-generated Markdown files.
-
 It identifies suspicious tables, links them to the corresponding PDF page, and sends only high-risk cases to a local vision LLM for correction. This reduces unnecessary manual review of historical archive documents.
 
 ## Workflow
