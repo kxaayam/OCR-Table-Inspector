@@ -4,18 +4,18 @@
 import sys
 from typing import Callable, List
 
-import check
-from finding import Finding
+import Functions.check as check
+from Functions.finding import Finding
 
 
 # --- adapters: one per check -------------------------------------------------
 
 def check1_adapter(doc: str) -> List[Finding]:
-    """Wrap check1 (row-length uniformity) into common Findings."""
+    """Wrap check.py (row-width damage detector) into common Findings."""
     matches = list(check.TABLE_RE.finditer(doc))
     findings: List[Finding] = []
 
-    for r in check1.inspect_document(doc):
+    for r in check.inspect_document(doc):
         if not r.flagged:                    
             continue
         m = matches[r.index]
@@ -58,8 +58,8 @@ CHECKS: List[Callable[[str], List[Finding]]] = [
 def detect(doc: str) -> List[Finding]:
     """Run every registered check and return one merged, ordered list."""
     findings: List[Finding] = []
-    for check in CHECKS:
-        findings.extend(check(doc))
+    for check_fn in CHECKS:
+        findings.extend(check_fn(doc))
     # Stable, human-friendly order: by rough page, then by position in the file.
     findings.sort(key=lambda f: (f.page_guess, f.start))
     return findings
@@ -82,7 +82,7 @@ def report(findings: List[Finding]) -> None:
 
 def main():
     if len(sys.argv) != 2:
-        print("usage: python stage1_detect.py document.md")
+        print("usage: python3 -m Functions.stage1_detect document.md")
         sys.exit(1)
     with open(sys.argv[1], encoding="utf-8", errors="replace") as fh:
         doc = fh.read()

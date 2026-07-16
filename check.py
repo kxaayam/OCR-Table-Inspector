@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from page_locator import divider_positions, page_of_position
+from Functions.page_locator import divider_positions, page_of_position
 
 TABLE_RE = re.compile(r"<table\b.*?</table>", re.S | re.I)
 ROW_RE = re.compile(r"<tr\b[^>]*>(.*?)</tr>", re.S | re.I)
@@ -70,8 +70,6 @@ class TableResult:
     page: int = 1
     name: str = "(unnamed)"
     flagged: List[int] = field(default_factory=list)
-    strict_majority: bool = True
-
     ignored: List[int] = field(default_factory=list)
     issues: Dict[int, RowIssue] = field(default_factory=dict)
 
@@ -285,15 +283,29 @@ def classify_mismatch(
             reason="cell appears to merge placeholder dots with a numeric value",
         )
 
-    if width < expected and count_numeric_cells(row) > 0:
+    if width < expected:
         return RowIssue(
             row=row_index,
             kind="short_data_row",
             trigger_llm=True,
-            reason="data row is shorter than expected and still contains numeric values",
+            reason="data row is shorter than expected",
         )
 
     if width > expected:
+        # A row is only genuinely "too wide" if it carries MORE non-empty cells
+        # than the table has columns. If its non-empty content fits within
+        # `expected`, the excess width is a spanning artifact (a colspan on the
+        # label, as in a table of contents) or empty padding -- not real extra
+        # data -- so it is not damage. (Only "" is empty here; ".." is a
+        # meaningful placeholder and still counts.)
+        non_empty = sum(1 for cell in row.cells if cell.plain() != "")
+        if non_empty <= expected:
+            return RowIssue(
+                row=row_index,
+                kind="benign_wide_row",
+                trigger_llm=False,
+                reason="excess width is spanning/empty padding, not real extra cells",
+            )
         return RowIssue(
             row=row_index,
             kind="extra_cells",
@@ -315,10 +327,6 @@ def check_table(index: int, table_html: str, page: int, name: str) -> TableResul
 
     widths = spanned_widths(rows) if kind == "spanned" else simple_widths(rows)
     expected = infer_expected_width(rows, widths)
-
-    counts = Counter(w for w in widths if w > 0)
-    top = counts.get(expected, 0)
-    strict_majority = top > len(widths) / 2 if widths else False
 
     flagged: List[int] = []
     ignored: List[int] = []
@@ -348,7 +356,6 @@ def check_table(index: int, table_html: str, page: int, name: str) -> TableResul
         flagged=flagged,
         ignored=ignored,
         issues=issues,
-        strict_majority=strict_majority,
     )
 
 
@@ -406,7 +413,7 @@ def report(results: List[TableResult]) -> None:
 
 def main():
     if len(sys.argv) != 2:
-        print("usage: python check.py document.md")
+        print("usage: python3 -m Functions.check document.md")
         sys.exit(1)
 
     path = sys.argv[1]
