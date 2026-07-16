@@ -24,30 +24,52 @@ Corrected working Markdown file
 ## Repository Structure
 
 ```text
-run_pipeline.py      Run the full pipeline
-stage0_copy.py       Create a working copy of the input Markdown file
-stage1_detect.py     Run table-detection checks
-check.py             Detect uneven/high-risk table structures
-finding.py           Shared Finding object used across stages
-stage2_locate.py     Locate suspicious tables in the source PDF
-page_locator.py      Estimate page numbers using Markdown page dividers
-stage3_correct.py    Send located tables to the local vision LLM
-SKILL.md             Table correction instructions for the LLM
+Functions/               Python package holding the pipeline code
+  run_pipeline.py        Run the full pipeline
+  stage0_copy.py         Create a working copy of the input Markdown file
+  stage1_detect.py       Run table-detection checks
+  check.py               Detect uneven/high-risk table structures
+  finding.py             Shared Finding object used across stages
+  stage2_locate.py       Locate suspicious tables in the source PDF
+  page_locator.py        Estimate page numbers using Markdown page dividers
+  llm_locator.py         Optional vision-LLM page locator (confirms the guess)
+  stage3_correct.py      Send located tables to the local vision LLM
+  correct.py             Resumable batch-correction step
+  fix_table.py           Re-correct a single table on a chosen page
+  pipeline_state.py      Read/write state.json + report.txt
+  SKILL.md               Table correction instructions for the LLM
+working_copies/          Edited copies of input Markdown (originals untouched)
+working_pdf/             Rendered page images + state.json / report.txt per run
+requirements.txt         Python dependencies (PyMuPDF)
+```
+
+## Setup
+
+Requires Python 3 and PyMuPDF, plus a local [Ollama](https://ollama.com)
+server for the vision model (Stage 3). Install the Python dependency with:
+
+```bash
+pip install -r requirements.txt
 ```
 
 ## Usage
 
-Run the full pipeline with:
+Run the full pipeline from the repository root (so the `Functions` package is
+importable):
 
 ```bash
-python3 run_pipeline.py <document.md> <source.pdf>
+python3 -m Functions.run_pipeline <document.md> <source.pdf>
 ```
 
 Example:
 
 ```bash
-python3 run_pipeline.py report_original.md report.pdf
+python3 -m Functions.run_pipeline report_original.md report.pdf
 ```
+
+By default the pipeline stops after locating tables so you can review the page
+images first. Add `--correct` to run the corrections, and `--force` to
+overwrite an existing working copy.
 
 ## Stage
 

@@ -1,0 +1,15 @@
+# Local test fixtures (large; not shipped with the repo)
+test_pdf/
+test_original/
+
+# Generated pipeline output — keep the folders, ignore their contents
+working_copies/*
+!working_copies/.gitkeep
+working_pdf/*
+!working_pdf/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

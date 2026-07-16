@@ -1,0 +1,6 @@
+# Python dependencies for the OCR Table Correction Pipeline.
+# Install with:  pip install -r requirements.txt
+
+# PDF rendering / page counting (imported as `fitz`), used in stage2_locate.py
+# and llm_locator.py to render PDF pages to PNG images.
+PyMuPDF>=1.23
