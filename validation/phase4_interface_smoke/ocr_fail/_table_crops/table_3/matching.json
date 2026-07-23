@@ -1,0 +1,38 @@
+{
+  "lexical_scores": {},
+  "numeric_scores": {},
+  "lexical_winner": null,
+  "numeric_winner": null,
+  "agreement": false,
+  "status": "unresolved",
+  "selected": null,
+  "target_has_numeric_evidence": true,
+  "candidates": [
+    {
+      "candidate_id": "n10_table_000",
+      "page": 10,
+      "raw_bbox": [
+        1,
+        1,
+        10,
+        10
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        11,
+        11
+      ],
+      "sources": [
+        "pp_doclayout"
+      ],
+      "detector_scores": {},
+      "raw_detections": [],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\phase4_interface_smoke\\ocr_fail\\_table_crops\\table_3\\n10.jpg"
+    }
+  ],
+  "ocr_text": {},
+  "errors": [
+    "n10_table_000: ocr failed"
+  ]
+}

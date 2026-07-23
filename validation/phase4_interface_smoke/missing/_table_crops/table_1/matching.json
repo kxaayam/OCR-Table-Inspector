@@ -1,0 +1,43 @@
+{
+  "lexical_scores": {
+    "n10_table_000": 1.0
+  },
+  "numeric_scores": {
+    "n10_table_000": null
+  },
+  "lexical_winner": "n10_table_000",
+  "numeric_winner": null,
+  "agreement": false,
+  "status": "unresolved",
+  "selected": null,
+  "target_has_numeric_evidence": false,
+  "candidates": [
+    {
+      "candidate_id": "n10_table_000",
+      "page": 10,
+      "raw_bbox": [
+        1,
+        1,
+        10,
+        10
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        11,
+        11
+      ],
+      "sources": [
+        "pp_doclayout",
+        "table_transformer"
+      ],
+      "detector_scores": {},
+      "raw_detections": [],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\phase4_interface_smoke\\missing\\_table_crops\\table_1\\n10_table_000.jpg"
+    }
+  ],
+  "ocr_text": {
+    "n10_table_000": "Arts"
+  },
+  "errors": []
+}

@@ -1,23 +1,9 @@
 #!/usr/bin/env python3
-"""Stage 2 helper: LLM-assisted page locator.
 
-The divider count (finding.page_guess) is only a STARTING GUESS. This module
-renders that page plus a window of neighbours, builds a small fingerprint from
-the flagged table, and asks the local vision model which candidate page really
-holds the table. The guess is used automatically only when the model answers
-with high confidence; anything less falls back to manual review.
 
-Reuses stage2_locate.render_page / pdf_page_count for all rendering. Does not
-touch the markdown, the dividers, or the detector.
-"""
-
-import base64
-import json
 import os
 import re
-import time
-import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -25,39 +11,10 @@ import Functions.check as check
 import Functions.stage2_locate as stage2_locate
 from Functions.finding import Finding
 
-DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:12b-it-q8_0")
-DEFAULT_HOST = "http://localhost:11434"
-
-DEFAULT_WINDOW = 8          # render guess +/- this many pages
-DEFAULT_CANDIDATE_DPI = 100  # low dpi so a full window fits the model context
-DEFAULT_TIMEOUT = 1800
+DEFAULT_WINDOW = 8           # fetch guess +/- this many scan indices
 
 MAX_HEADER_ITEMS = 24
 MAX_ROW_LABELS = 8
-
-SYSTEM_PROMPT = (
-    "You identify which scanned page of a printed document contains one "
-    "specific table. You are shown several page images in ascending page "
-    "order, together with a fingerprint of the target table: its caption, its "
-    "column headers, and a few of its row labels. At most one page is the "
-    "target. Compare the fingerprint against the text visible on each page "
-    "image and decide which page it is.\n"
-    "Report confidence honestly:\n"
-    "- high: the caption or the column headers plainly match exactly one page;\n"
-    "- medium: a page is a likely match but you are not certain;\n"
-    "- low: no page clearly matches, or several look similar.\n"
-    "Return the actual PDF page number (one of the numbers you were given), or "
-    "null if nothing clearly matches."
-)
-
-RESPONSE_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "page": {"type": ["integer", "null"]},
-        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
-    },
-    "required": ["page", "confidence"],
-}
 
 
 @dataclass
@@ -66,12 +23,29 @@ class RelocateResult:
     guess: int
     candidates: List[int]
     selected: Optional[int]
-    confidence: str
-    status: str                      # "located" | "manual_review"
+    status: str                      # "located" | "manual_review" | "awaiting"
     image_path: Optional[str] = None
     detail: str = ""
-    timing: Dict[str, Any] = field(default_factory=dict)
-    raw: str = ""
+    request_path: Optional[str] = None
+
+
+
+def _locate_requests_dir(image_dir: str) -> str:
+    return os.path.join(image_dir, "locate_requests")
+
+
+def _locate_responses_dir(image_dir: str) -> str:
+    return os.path.join(image_dir, "locate_responses")
+
+
+def _locate_request_path(image_dir: str, table_index: int) -> str:
+    return os.path.join(_locate_requests_dir(image_dir),
+                        f"table_{table_index}.txt")
+
+
+def _locate_response_path(image_dir: str, table_index: int) -> str:
+    return os.path.join(_locate_responses_dir(image_dir),
+                        f"table_{table_index}.txt")
 
 
 # --- fingerprint -------------------------------------------------------------
@@ -91,7 +65,7 @@ def _dedupe(items: List[str]) -> List[str]:
 
 def build_fingerprint(finding: Finding) -> Dict[str, Any]:
     """Pull caption, header text, and distinctive row labels out of the flagged
-    table so the model has something concrete to match against."""
+    table so there is something concrete to match against the page images."""
     caption = _clean(finding.caption)
 
     headers: List[str] = []
@@ -121,12 +95,12 @@ def build_fingerprint(finding: Finding) -> Dict[str, Any]:
     }
 
 
-def _fingerprint_text(fp: Dict[str, Any], candidates: List[int]) -> str:
-    first, last = candidates[0], candidates[-1]
+def _fingerprint_text(fp: Dict[str, Any], candidates: List[int],
+                      table_index: int) -> str:
     lines = [
-        f"You are shown {len(candidates)} page images in ascending order.",
-        f"Image 1 = PDF page {first}, and each following image is the next "
-        f"page, up to image {len(candidates)} = PDF page {last}.",
+        f"Locate the page holding table {table_index}.",
+        f"Candidate scan indices (images in _candidates/cand_n<p>.jpg): "
+        + ", ".join(str(p) for p in candidates),
         "",
         "Target table fingerprint:",
         f"  caption: {fp['caption'] or '(none)'}",
@@ -137,145 +111,107 @@ def _fingerprint_text(fp: Dict[str, Any], candidates: List[int]) -> str:
         lines.append("  row labels: " + " | ".join(fp["row_labels"]))
     lines += [
         "",
-        "Which PDF page contains this table? Answer with the page number "
-        "(one of the numbers above) or null, plus your confidence.",
+        f"Open the candidate images, decide which page contains this table, and",
+        f"write that single scan index (or 'none') to "
+        f"locate_responses/table_{table_index}.txt.",
     ]
     return "\n".join(lines)
 
 
-# --- model call --------------------------------------------------------------
+def _candidate_window(guess: int, window: int) -> List[int]:
+    # n is 0-based; the upper bound is unknown, so overshoot and let 404s drop.
+    lo = max(0, guess - window)
+    return list(range(lo, guess + window + 1))
 
-def _render_candidates(pdf_path: str, candidates: List[int], cand_dir: str,
-                       dpi: int) -> List[str]:
+
+def _fetch_candidates(doc_id: str, candidates: List[int], cand_dir: str,
+                      collection: str) -> List[int]:
+    """Fetch each candidate scan image; return the indices that actually
+    exist (404s are skipped)."""
     os.makedirs(cand_dir, exist_ok=True)
-    paths = []
+    got: List[int] = []
     for p in candidates:
-        out = os.path.join(cand_dir, f"cand_{p}.png")
-        if not os.path.exists(out):
-            stage2_locate.render_page(pdf_path, p - 1, out, dpi=dpi)
-        paths.append(out)
-    return paths
+        out = os.path.join(cand_dir, f"cand_n{p}.jpg")
+        try:
+            path = stage2_locate.fetch_page_image(doc_id, p, out, collection)
+        except Exception:
+            path = None
+        if path:
+            got.append(p)
+    return got
 
 
-def _ask_model(fp_text: str, image_paths: List[str], model: str, host: str,
-               timeout: int) -> Dict[str, Any]:
-    images = [base64.b64encode(Path(p).read_bytes()).decode()
-              for p in image_paths]
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": fp_text, "images": images},
-        ],
-        "stream": False,
-        "think": False,
-        "format": RESPONSE_SCHEMA,
-        "options": {"temperature": 0, "num_predict": 64},
-    }
-    req = urllib.request.Request(
-        f"{host}/api/chat",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    t0 = time.time()
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        data = json.load(resp)
-    wall = time.time() - t0
-    data["_wallclock_s"] = wall
-    return data
+def read_choice(image_dir: str, table_index: int) -> Optional[int]:
+    """Parse Claude's chosen scan index from the response file, or None if
+    absent / 'none' / unparseable."""
+    p = Path(_locate_response_path(image_dir, table_index))
+    if not p.is_file():
+        return None
+    m = re.search(r"-?\d+", p.read_text(encoding="utf-8", errors="replace"))
+    return int(m.group(0)) if m else None
 
 
-def _extract_timing(data: Dict[str, Any]) -> Dict[str, Any]:
-    def sec(key):
-        v = data.get(key)
-        return round(v / 1e9, 2) if isinstance(v, (int, float)) else None
-    return {
-        "wallclock_s": round(data.get("_wallclock_s", 0), 2),
-        "total_duration_s": sec("total_duration"),
-        "load_duration_s": sec("load_duration"),
-        "prompt_eval_count": data.get("prompt_eval_count"),
-        "eval_count": data.get("eval_count"),
-        "eval_duration_s": sec("eval_duration"),
-    }
+# --- public entry points -----------------------------------------------------
 
-
-# --- public entry point ------------------------------------------------------
-
-def relocate(finding: Finding, pdf_path: str, image_dir: str,
-             window: int = DEFAULT_WINDOW,
-             candidate_dpi: int = DEFAULT_CANDIDATE_DPI,
-             model: str = DEFAULT_MODEL, host: str = DEFAULT_HOST,
-             timeout: int = DEFAULT_TIMEOUT,
-             n_pages: Optional[int] = None) -> RelocateResult:
-    """Confirm (or correct) finding.page_guess with the vision model.
-
-    Auto-selects the model's page only on high confidence; otherwise returns a
-    manual_review result. Renders the chosen page at full dpi as page_N.png so
-    the existing correction workflow can reuse it.
-    """
-    if n_pages is None:
-        n_pages = stage2_locate.pdf_page_count(pdf_path)
+def emit_candidates(finding: Finding, doc_id: str, image_dir: str,
+                    window: int = DEFAULT_WINDOW,
+                    collection: str = stage2_locate.DEFAULT_COLLECTION
+                    ) -> RelocateResult:
+    """Fetch the candidate window and write the locate request for Claude."""
     guess = finding.page_guess
-
-    lo = max(1, guess - window)
-    hi = min(n_pages, guess + window)
-    candidates = list(range(lo, hi + 1))
+    wanted = _candidate_window(guess, window)
+    cand_dir = os.path.join(image_dir, "_candidates")
+    candidates = _fetch_candidates(doc_id, wanted, cand_dir, collection)
     if not candidates:
         return RelocateResult(
-            finding, guess, [], None, "low", "manual_review",
-            detail=f"divider guess {guess} has no candidate pages in 1..{n_pages}")
+            finding, guess, [], None, "manual_review",
+            detail=f"no candidate images fetched around n{guess}")
 
     fp = build_fingerprint(finding)
-    fp_text = _fingerprint_text(fp, candidates)
-    cand_dir = os.path.join(image_dir, "_candidates")
-    cand_paths = _render_candidates(pdf_path, candidates, cand_dir,
-                                    candidate_dpi)
+    os.makedirs(_locate_requests_dir(image_dir), exist_ok=True)
+    os.makedirs(_locate_responses_dir(image_dir), exist_ok=True)
+    req_path = _locate_request_path(image_dir, finding.table_index)
+    Path(req_path).write_text(
+        _fingerprint_text(fp, candidates, finding.table_index) + "\n",
+        encoding="utf-8")
 
-    try:
-        data = _ask_model(fp_text, cand_paths, model, host, timeout)
-    except Exception as e:
-        return RelocateResult(
-            finding, guess, candidates, None, "low", "manual_review",
-            detail=f"model call failed: {e}")
-
-    timing = _extract_timing(data)
-    content = data.get("message", {}).get("content", "") or ""
-    try:
-        parsed = json.loads(content)
-        selected = parsed.get("page")
-        confidence = parsed.get("confidence", "low")
-        if selected is not None:
-            selected = int(selected)
-    except Exception as e:
-        return RelocateResult(
-            finding, guess, candidates, None, "low", "manual_review",
-            detail=f"could not parse model response: {e}", timing=timing,
-            raw=content)
-
-    if confidence not in ("high", "medium", "low"):
-        confidence = "low"
-
-    # auto-use the page ONLY on high confidence and only if it is a page we
-    # actually showed the model
-    if confidence == "high" and selected in candidates:
-        img_path = os.path.join(image_dir, f"page_{selected}.png")
-        if not os.path.exists(img_path):
-            stage2_locate.render_page(pdf_path, selected - 1, img_path)
-        moved = " (== divider guess)" if selected == guess else \
-            f" (relocated from divider guess {guess})"
-        return RelocateResult(
-            finding, guess, candidates, selected, confidence, "located",
-            image_path=img_path,
-            detail=f"model chose page {selected}{moved}", timing=timing,
-            raw=content)
-
-    reason = "no clear match" if selected is None else \
-        (f"page {selected} outside candidate window"
-         if selected not in candidates else f"confidence {confidence}")
     return RelocateResult(
-        finding, guess, candidates, selected, confidence, "manual_review",
-        detail=f"not auto-used: {reason}; divider guess was {guess}",
-        timing=timing, raw=content)
+        finding, guess, candidates, None, "awaiting",
+        detail=f"candidates {candidates[0]}..{candidates[-1]} fetched; "
+               f"awaiting page choice",
+        request_path=req_path)
+
+
+def record_choice(finding: Finding, doc_id: str, image_dir: str,
+                  window: int = DEFAULT_WINDOW,
+                  collection: str = stage2_locate.DEFAULT_COLLECTION
+                  ) -> RelocateResult:
+    """Read Claude's chosen scan index and, if it exists, fetch it as
+    page_n<N>.jpg. Otherwise fall back to manual review."""
+    guess = finding.page_guess
+    selected = read_choice(image_dir, finding.table_index)
+    if selected is None:
+        return RelocateResult(
+            finding, guess, [], None, "awaiting",
+            detail="no page choice recorded yet")
+
+    out_path = os.path.join(image_dir, stage2_locate.image_name(selected))
+    try:
+        got = stage2_locate.fetch_page_image(doc_id, selected, out_path,
+                                             collection)
+    except Exception as e:
+        return RelocateResult(
+            finding, guess, [], selected, "manual_review",
+            detail=f"fetch failed for n{selected}: {e}")
+    if got is None:
+        return RelocateResult(
+            finding, guess, [], selected, "manual_review",
+            detail=f"chosen page n{selected} not found (404)")
+    moved = " (== divider guess)" if selected == guess else \
+        f" (relocated from divider guess {guess})"
+    return RelocateResult(
+        finding, guess, [], selected, "located",
+        image_path=got, detail=f"page n{selected}{moved}")
 
 
 def main():
@@ -283,30 +219,40 @@ def main():
     import Functions.stage1_detect as stage1_detect
 
     ap = argparse.ArgumentParser(
-        description="LLM-assisted page locator (read-only probe).")
+        description="Claude-assisted page locator (read-only probe).")
     ap.add_argument("md")
-    ap.add_argument("pdf")
+    ap.add_argument("--doc-id", default=None)
+    ap.add_argument("--collection", default=stage2_locate.DEFAULT_COLLECTION)
     ap.add_argument("--table", type=int, help="only this table index")
     ap.add_argument("--window", type=int, default=DEFAULT_WINDOW)
     ap.add_argument("--image-dir", default=None)
     args = ap.parse_args()
 
-    doc = Path(args.md).read_text(encoding="utf-8", errors="replace")
+    md = Path(args.md)
+    doc_id = args.doc_id or md.stem
+    doc = md.read_text(encoding="utf-8", errors="replace")
     findings = stage1_detect.detect(doc)
     if args.table is not None:
         findings = [f for f in findings if f.table_index == args.table]
     image_dir = args.image_dir or os.path.join(".", "_llm_locator_out")
     os.makedirs(image_dir, exist_ok=True)
 
-    n_pages = stage2_locate.pdf_page_count(args.pdf)
     for f in findings:
-        r = relocate(f, args.pdf, image_dir, window=args.window, n_pages=n_pages)
+        # If a choice is already recorded, act on it; otherwise emit candidates.
+        if read_choice(image_dir, f.table_index) is not None:
+            r = record_choice(f, doc_id, image_dir, window=args.window,
+                              collection=args.collection)
+        else:
+            r = emit_candidates(f, doc_id, image_dir, window=args.window,
+                                collection=args.collection)
         print(f'\ntable {f.table_index} "{_clean(f.caption)[:50]}"')
-        print(f'  guess={r.guess} candidates={r.candidates[0]}..'
-              f'{r.candidates[-1]} selected={r.selected} '
-              f'confidence={r.confidence} status={r.status}')
+        print(f'  guess=n{r.guess} '
+              f'candidates={r.candidates[0] if r.candidates else "-"}..'
+              f'{r.candidates[-1] if r.candidates else "-"} '
+              f'selected={r.selected} status={r.status}')
         print(f'  detail: {r.detail}')
-        print(f'  timing: {r.timing}')
+        if r.request_path:
+            print(f'  request: {r.request_path}')
 
 
 if __name__ == "__main__":

@@ -1,0 +1,223 @@
+{
+  "lexical_scores": {
+    "n228_table_000": 0.15909090909090912,
+    "n229_table_000": 0.17391304347826086,
+    "n230_table_000": 0.13793103448275862,
+    "n230_table_001": 0.2137404580152672
+  },
+  "numeric_scores": {
+    "n228_table_000": 0.49612403100775193,
+    "n229_table_000": 0.2577319587628866,
+    "n230_table_000": 0.28571428571428575,
+    "n230_table_001": null
+  },
+  "lexical_winner": "n230_table_001",
+  "numeric_winner": "n228_table_000",
+  "agreement": false,
+  "status": "unresolved",
+  "selected": null,
+  "target_has_numeric_evidence": true,
+  "candidates": [
+    {
+      "candidate_id": "n228_table_000",
+      "page": 228,
+      "raw_bbox": [
+        75.08296966552734,
+        278.3214111328125,
+        2460.0478515625,
+        4333.556640625
+      ],
+      "crop_bbox": [
+        67,
+        270,
+        2469,
+        4342
+      ],
+      "sources": [
+        "pp_doclayout",
+        "table_transformer"
+      ],
+      "detector_scores": {
+        "table_transformer": 0.9999969005584717,
+        "pp_doclayout": 0.9519238471984863
+      },
+      "raw_detections": [
+        {
+          "detector": "table_transformer",
+          "label": "table rotated",
+          "score": 0.9999969005584717,
+          "raw_bbox": [
+            75.08296966552734,
+            278.3214111328125,
+            2460.0478515625,
+            4333.556640625
+          ]
+        },
+        {
+          "detector": "pp_doclayout",
+          "label": "table",
+          "score": 0.9519238471984863,
+          "raw_bbox": [
+            145.80030822753906,
+            238.6145477294922,
+            2496.031494140625,
+            4310.22900390625
+          ]
+        }
+      ],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\1958_clean_phase4\\images\\_table_crops\\table_31\\n228_table_000.jpg"
+    },
+    {
+      "candidate_id": "n229_table_000",
+      "page": 229,
+      "raw_bbox": [
+        489.6785888671875,
+        238.02529907226562,
+        2624.116943359375,
+        4269.05810546875
+      ],
+      "crop_bbox": [
+        481,
+        230,
+        2633,
+        4278
+      ],
+      "sources": [
+        "pp_doclayout",
+        "table_transformer"
+      ],
+      "detector_scores": {
+        "table_transformer": 0.9999972581863403,
+        "pp_doclayout": 0.9596774578094482
+      },
+      "raw_detections": [
+        {
+          "detector": "table_transformer",
+          "label": "table rotated",
+          "score": 0.9999972581863403,
+          "raw_bbox": [
+            489.6785888671875,
+            238.02529907226562,
+            2624.116943359375,
+            4269.05810546875
+          ]
+        },
+        {
+          "detector": "pp_doclayout",
+          "label": "table",
+          "score": 0.9596774578094482,
+          "raw_bbox": [
+            437.7593994140625,
+            208.65162658691406,
+            2662.27783203125,
+            4263.203125
+          ]
+        }
+      ],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\1958_clean_phase4\\images\\_table_crops\\table_31\\n229_table_000.jpg"
+    },
+    {
+      "candidate_id": "n230_table_000",
+      "page": 230,
+      "raw_bbox": [
+        113.12423706054688,
+        280.1497802734375,
+        2282.4609375,
+        4331.32470703125
+      ],
+      "crop_bbox": [
+        105,
+        272,
+        2291,
+        4340
+      ],
+      "sources": [
+        "pp_doclayout",
+        "table_transformer"
+      ],
+      "detector_scores": {
+        "table_transformer": 0.9999982118606567,
+        "pp_doclayout": 0.8286254405975342
+      },
+      "raw_detections": [
+        {
+          "detector": "table_transformer",
+          "label": "table rotated",
+          "score": 0.9999982118606567,
+          "raw_bbox": [
+            113.12423706054688,
+            280.1497802734375,
+            2282.4609375,
+            4331.32470703125
+          ]
+        },
+        {
+          "detector": "pp_doclayout",
+          "label": "table",
+          "score": 0.8286254405975342,
+          "raw_bbox": [
+            97.81690216064453,
+            232.818603515625,
+            2562.68994140625,
+            4314.7412109375
+          ]
+        }
+      ],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\1958_clean_phase4\\images\\_table_crops\\table_31\\n230_table_000.jpg"
+    },
+    {
+      "candidate_id": "n230_table_001",
+      "page": 230,
+      "raw_bbox": [
+        109.40937805175781,
+        277.88653564453125,
+        553.7946166992188,
+        4307.6005859375
+      ],
+      "crop_bbox": [
+        101,
+        269,
+        562,
+        4316
+      ],
+      "sources": [
+        "pp_doclayout"
+      ],
+      "detector_scores": {
+        "pp_doclayout": 0.543635904788971
+      },
+      "raw_detections": [
+        {
+          "detector": "pp_doclayout",
+          "label": "table",
+          "score": 0.543635904788971,
+          "raw_bbox": [
+            109.40937805175781,
+            277.88653564453125,
+            553.7946166992188,
+            4307.6005859375
+          ]
+        },
+        {
+          "detector": "pp_doclayout",
+          "label": "table",
+          "score": 0.5407004356384277,
+          "raw_bbox": [
+            106.5196533203125,
+            281.0244140625,
+            551.253173828125,
+            4309.888671875
+          ]
+        }
+      ],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\1958_clean_phase4\\images\\_table_crops\\table_31\\n230_table_001.jpg"
+    }
+  ],
+  "ocr_text": {
+    "n228_table_000": "  tt\n2 117\n82 1,279\n537\n741\n01,,82\n20    796\n828\n7\n552\n15\n44\n18\n8\n128\n13\n12\n2\n1\nstudnts\nAll\n231\n291\n84\n1\n28\n6\n5\n1\n2\n068\nL69\n306\n450\n744\n6\n5\n14\n2\n13\n36\n12\n8\n123\n13\n11\n29\n11\n90\n479\n197\n05 12\n4323\n24  一389一\n5\nartime\ntudnts\npeial\n193\n79\n11\n1\n2\n28\nand\n286\n919\n31 49\n18\n10\n4\n62\n118\n176\n5\nM\nW Total\n516 1,388\n581 1 1268\n536\n735\n828\n7\n15\n2\n15\n44\n18\n8\n128\n13\n12\n2\nll yars\n231\n289\n84\n1\n28\n6\n5\n1\n2\n872\nL89\n305\n446\n744\n14\n2\n13\n36\n12\n8\n123\n13\n11\nM\n3\nVI\n10 110\nM\nu   nt\na  in\nV\nac rts\n18137\nM\n44\n68\n17\n8\n28137\nM\nIV\n86\n78\n39\n25\n2131\nM\n_ear\n417\nW\n138\n135\n58\n86\n1\n2\nII\n567\n194\n183\n73\n117\n414\n52\n460\nM\n131\n167\n83\n79\n23\nII\n259\n164\n78\n132\n633\n105\n8\n18\n6\n4\n5\nM\n72116\n03\n203\n211\n73\n17\n263\nM\n5\n82\nI\n333\n262\n115\n117\n6\n14\n25\n18\n6\n8\n123\n4\n4\nM\nIp      n\nne( t)\n  n\nip   n\npl     g\ne r  a\ni   t\nip tr\ne ren一\ne en\n. C ge\ne En\ne nt\no In\nniorg\nur io\nOTAL\ni o\nei\ntoarogy\nicg\ne ent\nent\nrion e\nphy\nnaeia\nnay\neral",
+    "n229_table_000": "WTotal\n8\n2\n301 ,288\n15\n9 2,141\n20\n314\n43\n188\n54\n73\nstudnts\n189\n7\n20\n2\n127\n28\n23\n178\nAll\n367\n786\n148\n12,132\n187\n15\n165\n73\nM\nW Total\n5\n2\nartme\ntudnts\nspecial\nand\n5\n2\nM\n189\n1,283\n153\n9 2,140\n20\n314\n43\n188\n2\n545\nW Total\n73\nll yars\n301\n189\n7\n20\n2\n127\n28\n23\n178\n367\n982\n146\n187\n2,13\n15\n165\n73\nM\na   ng\nM\n13\nVI\n110\nM\nÉac  nc\nn    ton\ni0\n金u  nt\nW\nV\nac f  a\na  tr\n18 137\nM\nM\n4\n6\nIV\n131\n478\n21\nM\near\n1\n59\n8\nM\nI\n31\n3 454\n151\n15\nM\n62\n81\nW\n3\nII\n146\n36\n523\n16\nM\n68\n105\n6\n3\n127\n28\n23\n367178\nW\n2\nI\n307\n79\n929\n187\n15\n165\n ac  2\nM\nac   ne\ne ca\nac    n\nd   p\nan\neacurse\nipa rs\nibrs\nii \neas\n_OTAL\n_OTAL\nar f ws",
+    "n230_table_000": "W otal\n73\n25\n17\n10\n125\nstudnts\n33\n18\n17\n74\nAll\n40\n7\nM\n51\nW Total\n3\nar- ime\nstudnts\npeial\nand\n TM\n3\n70\n25\n17\n74121\n279\n236\n54\n32\n94\n5\n53\n2\n9\n235\n9\n50\nll ars\n33\n18\n17\n25\n56\n2\n2\n7\n30\n37\n7\n3\n47\n254\n180\n52\n32\n92\n5\n46\n2\n8\n224\n20\nM\nW\nVI\nM\nc   es\n金unt\nM\nV\nÉacc   si\nM\nIV\nM\n_ear\n633\n2\n14\nI\n12\n2\n2\n16\nM\n9\n10\n7\n2\n28\nII\n10\nM\n11\nM\n2\n32\nI\n15\n5\n20\nM\ne f \neW a r\ne    \negre    oh\ne r\ne  ar\neg ear\nrtima\ne  a\nea  f er\ne n\nea n\neg  Mus\negr   Mi\nea w\ner r rt\nia\nacr off si\n re\n_OTAL\n Dtry\nf Fstry\nrtma\noures*\nince\ncince",
+    "n230_table_001": "W Total\nstudnts\nAll\nMM\nW Total\narrme\nstudnts\npeial\nand\nM\nW Total\nll yars\nM\nW\nVI\nM\n金u n\nW\nV\nM\nW\nIV\nM\n_ear\nW\nI\nM\nW\nII\nM\nW\nI\nM\ne  a"
+  },
+  "errors": []
+}

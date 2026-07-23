@@ -1,0 +1,77 @@
+{
+  "detections": [
+    {
+      "detector": "pp_doclayout",
+      "label": "table",
+      "score": 0.9519238471984863,
+      "raw_bbox": [
+        145.80030822753906,
+        238.6145477294922,
+        2496.031494140625,
+        4310.22900390625
+      ]
+    },
+    {
+      "detector": "table_transformer",
+      "label": "table rotated",
+      "score": 0.9999969005584717,
+      "raw_bbox": [
+        75.08296966552734,
+        278.3214111328125,
+        2460.0478515625,
+        4333.556640625
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "n228_table_000",
+      "page": 228,
+      "raw_bbox": [
+        75.08296966552734,
+        278.3214111328125,
+        2460.0478515625,
+        4333.556640625
+      ],
+      "crop_bbox": [
+        67,
+        270,
+        2469,
+        4342
+      ],
+      "sources": [
+        "pp_doclayout",
+        "table_transformer"
+      ],
+      "detector_scores": {
+        "table_transformer": 0.9999969005584717,
+        "pp_doclayout": 0.9519238471984863
+      },
+      "raw_detections": [
+        {
+          "detector": "table_transformer",
+          "label": "table rotated",
+          "score": 0.9999969005584717,
+          "raw_bbox": [
+            75.08296966552734,
+            278.3214111328125,
+            2460.0478515625,
+            4333.556640625
+          ]
+        },
+        {
+          "detector": "pp_doclayout",
+          "label": "table",
+          "score": 0.9519238471984863,
+          "raw_bbox": [
+            145.80030822753906,
+            238.6145477294922,
+            2496.031494140625,
+            4310.22900390625
+          ]
+        }
+      ],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\1958_clean_phase4\\images\\_table_crops\\table_31\\n228_table_000.jpg"
+    }
+  ]
+}

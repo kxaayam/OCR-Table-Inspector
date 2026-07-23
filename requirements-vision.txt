@@ -1,0 +1,11 @@
+# Optional automatic table-localization stack. Install in a dedicated venv.
+# CPU-first baseline; do not replace paddlepaddle with paddlepaddle-gpu unless
+# the host's actual CUDA version is known to be supported.
+Pillow>=10.4
+torch>=2.4
+torchvision>=0.19
+transformers>=4.45
+timm>=1.0
+paddlepaddle>=3.0
+paddlex[ocr]>=3.0
+paddleocr>=3.0

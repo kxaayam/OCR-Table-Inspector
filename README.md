@@ -3,7 +3,9 @@
 
 
 This repository contains a pipeline for detecting and correcting problematic HTML tables in OCR-generated Markdown files.
-It identifies suspicious tables, links them to the corresponding PDF page, and sends only high-risk cases to a local vision LLM for correction. This reduces unnecessary manual review of historical archive documents.
+It identifies suspicious tables, links each to its scanned page image from the U of T Library, and hands only high-risk cases to Claude — running in your Claude Code session — for correction. This reduces unnecessary manual review of historical archive documents.
+
+The pipeline does not call any model server, and there is no PDF input. Python does the deterministic work (detect, locate, fetch page images, splice results back safely); Claude is the vision step that reads each page image and rewrites the table.
 
 ## Workflow
 
@@ -14,9 +16,9 @@ Stage 0: create working copy
       ↓
 Stage 1: detect suspicious tables
       ↓
-Stage 2: locate table page in source PDF
+Stage 2: fetch table's page image from the U of T Library
       ↓
-Stage 3: correct table using local vision LLM + SKILL.md
+Stage 3: Claude corrects each table from its page image + SKILL.md
       ↓
 Corrected working Markdown file
 ```
@@ -30,27 +32,37 @@ Functions/               Python package holding the pipeline code
   stage1_detect.py       Run table-detection checks
   check.py               Detect uneven/high-risk table structures
   finding.py             Shared Finding object used across stages
-  stage2_locate.py       Locate suspicious tables in the source PDF
+  stage2_locate.py       Fetch each table's page image from the library
   page_locator.py        Estimate page numbers using Markdown page dividers
-  llm_locator.py         Optional vision-LLM page locator (confirms the guess)
-  stage3_correct.py      Send located tables to the local vision LLM
-  correct.py             Resumable batch-correction step
+  llm_locator.py         Optional Claude-assisted page locator (confirms the guess)
+  stage3_correct.py      Correction handoff: write requests, splice responses back
+  correct.py             Resumable batch-correction driver
   fix_table.py           Re-correct a single table on a chosen page
   pipeline_state.py      Read/write state.json + report.txt
-  SKILL.md               Table correction instructions for the LLM
+  SKILL.md               Table correction instructions Claude follows
 working_copies/          Edited copies of input Markdown (originals untouched)
-working_pdf/             Rendered page images + state.json / report.txt per run
-requirements.txt         Python dependencies (PyMuPDF)
+working_pdf/             Fetched page images + state.json / report.txt per run
+requirements.txt         Python dependencies (none — standard library only)
+requirements-vision.txt  Optional automatic localization dependencies
 ```
 
 ## Setup
 
-Requires Python 3 and PyMuPDF, plus a local [Ollama](https://ollama.com)
-server for the vision model (Stage 3). Install the Python dependency with:
+Requires only **Python 3 and an internet connection**. There are no third-party
+dependencies (page images are fetched over HTTP with the standard library), no
+PDF input, and no model server or API key — the correction step is performed by
+Claude in your Claude Code session.
 
-```bash
-pip install -r requirements.txt
+Page images come from the U of T Library, e.g.:
+
+```text
+https://content.library.utoronto.ca/uoft-presidentsreports/download/<doc_id>/page/n<N>.jpg
 ```
+
+The `<doc_id>` defaults to the markdown filename stem (e.g.
+`presidentsreport1958univ.md` → `presidentsreport1958univ`). Both the
+`presidentsreport…` and `uoftreportgov…` document types are served by the same
+`uoft-presidentsreports` collection.
 
 ## Usage
 
@@ -58,18 +70,50 @@ Run the full pipeline from the repository root (so the `Functions` package is
 importable):
 
 ```bash
-python3 -m Functions.run_pipeline <document.md> <source.pdf>
+python3 -m Functions.run_pipeline <document.md> [--doc-id ID] [--force]
 ```
+
+Automatic table-crop localization is optional because its model stack is
+large. On Windows, create a dedicated CPU environment and validate all three
+model loaders with:
+
+```powershell
+.\scripts\setup_vision.ps1
+.\.venv-vision\Scripts\python.exe scripts\smoke_vision.py
+```
+
+Models are downloaded from their official registries on first use and then
+reused from the normal Hugging Face/Paddle caches. Run automatic localization
+with `--vision`; change the nearby scan window with `--vision-window N`.
 
 Example:
 
 ```bash
-python3 -m Functions.run_pipeline report_original.md report.pdf
+python3 -m Functions.run_pipeline presidentsreport1958univ.md
 ```
 
-By default the pipeline stops after locating tables so you can review the page
-images first. Add `--correct` to run the corrections, and `--force` to
-overwrite an existing working copy.
+This runs Stages 0–2: it makes a working copy, detects the suspect tables,
+fetches each table's page image from the library, and writes one correction
+*request* per table under `working_pdf/<document>/requests/`. It then stops so
+you can review the fetched pages. Pass `--force` to overwrite an existing
+working copy. The document id defaults to the markdown stem; override it with
+`--doc-id` (and the collection or URL with `--collection` / `--url-template`).
+
+Stage 3 is done by Claude: for each located table, open its `page_nN.jpg`
+image, read the matching `requests/table_<idx>.html`, and save the corrected
+`<table>` to `responses/table_<idx>.html`. Then splice the corrections into the
+working copy with:
+
+```bash
+python3 -m Functions.correct <document.md>
+```
+
+This is resumable — correct a few tables, run it, correct more, run it again.
+To redo a single table on a specific page:
+
+```bash
+python3 -m Functions.fix_table <working.md> --table N --page P
+```
 
 ## Stage
 
@@ -96,30 +140,31 @@ Totals
 . 19
 ```
 
-### Stage 2: Locate Table in PDF
+### Stage 2: Fetch the Table's Page Image
 
-When a suspicious table is found, Stage 2 tries to locate the corresponding page in the source PDF.
+When a suspicious table is found, Stage 2 fetches the corresponding scanned page image from the U of T Library.
 
-It uses:
-- the approximate page position from Markdown page dividers '---' 
-- nearby captions or headings
-- distinctive row labels from the table
+The scan index `n` comes from the Markdown page dividers (`---`): the number of dividers before the table gives the page, which is assumed to match the library's scan index directly. The image is downloaded to `working_pdf/<document>/page_nN.jpg` (cached and reused on later runs).
 
-If the page cannot be located confidently, the table is left for manual review.
+If the page image cannot be fetched (e.g. HTTP 404 or a network error), the table is left for manual review.
 
 
-### Stage 3: Correct with Local Vision LLM
+### Stage 3: Correct with Claude
 
-Once the page is located, Stage 3 sends the following to the local vision LLM:
+Once the page image is fetched, the pipeline prepares everything Claude needs:
 
-- the rendered page image
-- the rough OCR table HTML
+- the fetched page image (`page_nN.jpg`)
+- the rough OCR table HTML (`requests/table_<idx>.html`)
 - `SKILL.md`
 
-The model is asked to return only the corrected `<table>...</table>` markup. The corrected table is then written into the working Markdown file.
+Claude reads the page image and rewrites the table, saving only the corrected
+`<table>...</table>` markup to `responses/table_<idx>.html`. Running
+`python3 -m Functions.correct` then splices each corrected table into the
+working Markdown file, verifying the original table is still exactly where it
+was recorded before replacing it.
 
 ## SKILL.md
-`SKILL.md` contains the table-formatting instructions used by the LLM.
+`SKILL.md` contains the table-formatting instructions Claude follows.
 
 It gives rules for:
 - cleaning OCR-generated HTML

@@ -1,0 +1,95 @@
+{
+  "lexical_scores": {
+    "n9_table_000": 0.0,
+    "n10_table_000": 1.0,
+    "n11_table_000": 0.0
+  },
+  "numeric_scores": {
+    "n9_table_000": 0.0,
+    "n10_table_000": 1.0,
+    "n11_table_000": 0.0
+  },
+  "lexical_winner": "n10_table_000",
+  "numeric_winner": "n10_table_000",
+  "agreement": true,
+  "status": "accepted",
+  "selected": "n10_table_000",
+  "target_has_numeric_evidence": true,
+  "candidates": [
+    {
+      "candidate_id": "n9_table_000",
+      "page": 9,
+      "raw_bbox": [
+        1,
+        1,
+        10,
+        10
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        11,
+        11
+      ],
+      "sources": [
+        "pp_doclayout",
+        "table_transformer"
+      ],
+      "detector_scores": {},
+      "raw_detections": [],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\phase4_interface_smoke\\located\\_table_crops\\table_0\\n9_table_000.jpg"
+    },
+    {
+      "candidate_id": "n10_table_000",
+      "page": 10,
+      "raw_bbox": [
+        1,
+        1,
+        10,
+        10
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        11,
+        11
+      ],
+      "sources": [
+        "pp_doclayout",
+        "table_transformer"
+      ],
+      "detector_scores": {},
+      "raw_detections": [],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\phase4_interface_smoke\\located\\_table_crops\\table_0\\n10_table_000.jpg"
+    },
+    {
+      "candidate_id": "n11_table_000",
+      "page": 11,
+      "raw_bbox": [
+        1,
+        1,
+        10,
+        10
+      ],
+      "crop_bbox": [
+        0,
+        0,
+        11,
+        11
+      ],
+      "sources": [
+        "pp_doclayout",
+        "table_transformer"
+      ],
+      "detector_scores": {},
+      "raw_detections": [],
+      "crop_path": "C:\\Users\\yujiezou\\Downloads\\OCR-Table-Inspector\\validation\\phase4_interface_smoke\\located\\_table_crops\\table_0\\n11_table_000.jpg"
+    }
+  ],
+  "ocr_text": {
+    "n9_table_000": "Science 99",
+    "n10_table_000": "Arts 12",
+    "n11_table_000": "Other 77"
+  },
+  "errors": []
+}

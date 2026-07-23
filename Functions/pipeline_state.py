@@ -12,10 +12,11 @@ def write_state(state: dict, state_path, report_path) -> None:
     lines = [
         f'document: {state["document"]}',
         f'working copy: {state["working_copy"]}',
-        f'pdf: {state["pdf"]}',
+        f'doc id: {state.get("doc_id", "")}',
+        f'collection: {state.get("collection", "")}',
         "note: table N = Nth <table> block in the document (0-based),",
         f'      redo one with: python3 -m Functions.fix_table '
-        f'{state["working_copy"]} {state["pdf"]} --table N --page P',
+        f'{state["working_copy"]} --table N --page P',
         "",
     ]
     for t in state["tables"]:
